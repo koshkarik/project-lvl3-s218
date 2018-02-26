@@ -1,0 +1,39 @@
+{
+  "name": "hexlet-project-3",
+  "version": "0.1.0",
+  "description": "rss reader",
+  "main": "index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "test",
+    "babel-node": "babel-node",
+    "build": "NODE_ENV=production babel src --out-dir dist --source-maps inline",
+    "prepublishOnly": "npm run build",
+    "eslint": "eslint"
+  },
+  "keywords": [
+    "rss",
+    "hexlet"
+  ],
+  "author": "yarik",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-cli": "*",
+    "babel-core": "*",
+    "babel-eslint": "*",
+    "babel-jest": "*",
+    "babel-preset-env": "*",
+    "babel-preset-stage-0": "*",
+    "eslint": "*",
+    "eslint-config-airbnb-base": "*",
+    "eslint-plugin-import": "*",
+    "jest": "*",
+    "jest-cli": "*"
+  },
+  "dependencies": {
+    "eslint-plugin-jest": "^21.7.0",
+    "lodash": "^4.17.4"
+  }
+}

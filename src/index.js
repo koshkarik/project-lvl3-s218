@@ -1,5 +1,4 @@
-const hello = () => {
-  console.log('hello');
-};
+import 'bootstrap/dist/css/bootstrap.min.css';
+import './style.css';
 
-hello();
+console.log('it works');

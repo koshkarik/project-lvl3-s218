@@ -1,4 +1,7 @@
 /node_modules/
 *.log
-/assets/
-.DS_Store
+dist
+flow-typed
+.tern-port
+assets
+.DS-Store

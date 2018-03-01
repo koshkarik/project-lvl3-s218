@@ -6,20 +6,24 @@ const inputField = document.querySelector('input');
 const form = document.querySelector('form');
 const streamsUl = document.querySelector('.streams-list');
 const itemsWrapper = document.querySelector('.all-items');
+const alertDiv = document.querySelector('[data-alert]');
 const proxyCorsServer = 'https://api.codetabs.com/cors-proxy/';
 
 const state = {
   inputForm: {
     valid: false,
-    activeClass: '',
   },
-  activeStreams: ['http://feeds.bbci.co.uk/news/world/africa/rss.xml'],
+  feedsQuantity: 0,
+  savedFeeds: ['http://feeds.bbci.co.uk/news/world/africa/rss.xml'],
   listOfStreams: [],
+
 };
 
 const checkUrl = url => validator.isURL(url);
 
 const getInfoFromXml = (xmlData) => {
+  const channelId = state.feedsQuantity;
+  state.feedsQuantity += 1;
   const channel = xmlData.querySelector('channel');
   const channelTitle = channel.querySelector('title').textContent;
   const channelDesc = channel.querySelector('description').textContent;
@@ -29,11 +33,27 @@ const getInfoFromXml = (xmlData) => {
     const link = item.querySelector('link').textContent;
     return { title, link };
   });
-  return { channelTitle, channelDesc, items: parsedItems };
+  return {
+    channelTitle, channelId, channelDesc, items: parsedItems, data: xmlData,
+  };
+};
+
+const removeStream = (id) => {
+  console.log(id);
+  const newFeedsState = state.listOfStreams.filter((feed) => {
+    console.log(feed.channelId);
+    return feed.channelId !== Number(id);
+    });
+  console.log(newFeedsState);
+  state.listOfStreams = [...newFeedsState];
+  console.log(state.listOfStreams);
+  console.log('delete');
+  buildListOfStreamsDomEl();
+  buildItemsDom();
 };
 
 const getAllStreamsListNodes = streamsList => streamsList.map((stream) => {
-  const { channelTitle, channelDesc } = stream;
+  const { channelTitle, channelDesc, channelId } = stream;
   const newListItem = document.createElement('li');
   newListItem.setAttribute('class', 'list-group-item');
   const newTitle = document.createElement('h4');
@@ -42,6 +62,15 @@ const getAllStreamsListNodes = streamsList => streamsList.map((stream) => {
   const desc = document.createElement('p');
   desc.textContent = channelDesc;
   newListItem.append(desc);
+  const buttonToRemove = document.createElement('button');
+  buttonToRemove.setAttribute('data-remove', channelId);
+  buttonToRemove.setAttribute('class', 'btn btn-danger');
+  buttonToRemove.textContent = 'remove';
+  buttonToRemove.addEventListener('click', (e) => {
+    const idToRemove = e.target.dataset.remove;
+    removeStream(idToRemove);
+  });
+  newListItem.append(buttonToRemove);
   return newListItem;
 });
 
@@ -66,49 +95,67 @@ const getAllItemsNodes = (streamsList) => {
 
 const getStream = (url) => {
   const requestUrl = proxyCorsServer.concat(url);
-  axios.get(requestUrl)
-    .then((response) => {
-      const parser = new DOMParser();
-      const parsedXml = parser.parseFromString(response.data, 'application/xml');
-      const newChannelData = getInfoFromXml(parsedXml);
-      const { listOfStreams } = state;
-      listOfStreams.push(newChannelData);
-      const allStreamsNodes = getAllStreamsListNodes(listOfStreams);
-      streamsUl.innerHTML = '';
-      allStreamsNodes.forEach(node => streamsUl.append(node));
-      const allItems = getAllItemsNodes(listOfStreams);
-      allItems.forEach((item) => {
-        itemsWrapper.append(item);
-      });
-      if (!state.activeStreams.includes(url)) {
-        state.activeStreams.push(url);
-      }
-    });
+  return axios.get(requestUrl);
 };
+
+const parseXml = (xml) => {
+  const parser = new DOMParser();
+  return parser.parseFromString(xml, 'application/xml');
+};
+
+function buildListOfStreamsDomEl() {
+  const allStreamsNodes = getAllStreamsListNodes(state.listOfStreams);
+  streamsUl.innerHTML = '';
+  allStreamsNodes.forEach(node => streamsUl.append(node));
+}
+
+function buildItemsDom() {
+  itemsWrapper.innerHTML = '';
+  const allItems = getAllItemsNodes(state.listOfStreams);
+  allItems.forEach((item) => {
+    itemsWrapper.append(item);
+  });
+}
 
 const handleInputClass = (inputEl) => {
   const { classList } = inputEl;
-  const { activeClass } = state.inputForm;
-  const valid = checkUrl(inputEl.value);
-  state.inputForm.valid = valid;
+  state.inputForm.valid = checkUrl(inputEl.value);
   const classToAdd = state.inputForm.valid ? 'is-valid' : 'is-invalid';
   const classToRemove = state.inputForm.valid ? 'is-invalid' : 'is-valid';
   if (inputEl.value.length === 0) {
-    classList.remove(activeClass);
-    state.inputForm.activeClass = '';
+    [...classList].forEach((className) => {
+      if (className !== 'form-control') {
+        classList.remove(className);
+      }
+    });
     return;
   }
-  if (activeClass === classToRemove) {
+  if (classList.contains(classToRemove)) {
     classList.remove(classToRemove);
   }
   classList.add(classToAdd);
-  state.inputForm.activeClass = classToAdd;
+};
+
+const addStreamToStateAndDom = (stream) => {
+  const parsedXml = parseXml(stream.data);
+  const newChannelData = getInfoFromXml(parsedXml);
+  state.listOfStreams.push(newChannelData);
+  buildListOfStreamsDomEl();
+  buildItemsDom();
 };
 
 const runRss = () => {
-  const promises = state.activeStreams.map(stream => getStream(stream));
-  axios.all(promises);
+  const promises = state.savedFeeds.map(stream => getStream(stream));
+  axios.all(promises)
+    .then((streamsData) => {
+      streamsData.forEach((piece) => {
+        addStreamToStateAndDom(piece);
+      });
+    });
   inputField.addEventListener('input', (e) => {
+    if (!alertDiv.classList.contains('invisible')) {
+      alertDiv.classList.add('invisible');
+    }
     handleInputClass(e.target);
   });
   form.addEventListener('submit', (e) => {
@@ -119,7 +166,11 @@ const runRss = () => {
     }
     inputField.value = '';
     handleInputClass(inputField);
-    getStream(url);
+    getStream(url).then(addStreamToStateAndDom).then(() => state.savedFeeds.push(url))
+      .catch((error) => {
+        console.log(error);
+        alertDiv.classList.remove('invisible');
+      });
   });
 };
 

@@ -39,15 +39,8 @@ const getInfoFromXml = (xmlData) => {
 };
 
 const removeStream = (id) => {
-  console.log(id);
-  const newFeedsState = state.listOfStreams.filter((feed) => {
-    console.log(feed.channelId);
-    return feed.channelId !== Number(id);
-    });
-  console.log(newFeedsState);
+  const newFeedsState = state.listOfStreams.filter(feed => feed.channelId !== Number(id));
   state.listOfStreams = [...newFeedsState];
-  console.log(state.listOfStreams);
-  console.log('delete');
   buildListOfStreamsDomEl();
   buildItemsDom();
 };

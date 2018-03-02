@@ -12,7 +12,6 @@ const modal = document.querySelector('.modal');
 const modalTitle = modal.querySelector('.modal-title');
 const modalBody = modal.querySelector('.modal-body');
 const proxyCorsServer = 'https://crossorigin.me/';
-console.log('go');
 
 const state = {
   inputForm: {
@@ -21,7 +20,7 @@ const state = {
   feedsQuantity: 0,
   savedFeeds: ['http://feeds.bbci.co.uk/news/world/africa/rss.xml'],
   listOfStreams: [],
-
+  allStreamsItems: [],
 };
 
 const checkUrl = url => validator.isURL(url);
@@ -34,11 +33,13 @@ const getInfoFromXml = (xmlData) => {
   const channelDesc = channel.querySelector('description').textContent;
   const items = [...channel.getElementsByTagName('item')];
   const parsedItems = items.map((item) => {
-    console.log(item);
     const title = item.querySelector('title').textContent;
     const link = item.querySelector('link').textContent;
     const description = item.querySelector('description') ? item.querySelector('description').textContent : '';
-    return { title, link, description };
+    const pubData = channel.querySelector('pubDate').textContent;
+    return {
+      title, pubData, link, description,
+    };
   });
   return {
     channelTitle, channelId, channelDesc, items: parsedItems, data: xmlData,
@@ -90,7 +91,9 @@ const getAllItemsNodes = (streamsList) => {
     const { items } = cur;
     return [...acc, ...items];
   }, []);
-  return allItems.map((item) => {
+  const sortedItems = allItems.sort((a, b) =>
+    new Date(b.pubData).getTime() - new Date(a.pubData).getTime());
+  return sortedItems.map((item) => {
     const { title, link, description } = item;
     const divEl = document.createElement('div');
     divEl.setAttribute('class', 'mb-3');
@@ -130,6 +133,7 @@ const buildListOfStreamsDomEl = () => {
 const buildItemsDom = () => {
   itemsWrapper.innerHTML = '';
   const allItems = getAllItemsNodes(state.listOfStreams);
+  console.log(allItems);
   allItems.forEach((item) => {
     itemsWrapper.append(item);
   });

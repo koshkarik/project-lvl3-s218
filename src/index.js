@@ -48,7 +48,9 @@ const getInfoFromXml = (xmlData) => {
 const removeStream = (id) => {
   const newFeedsState = state.listOfStreams.filter(feed => feed.channelId !== Number(id));
   state.listOfStreams = [...newFeedsState];
+  // eslint-disable-next-line no-use-before-define
   buildListOfStreamsDomEl();
+  // eslint-disable-next-line no-use-before-define
   buildItemsDom();
 };
 

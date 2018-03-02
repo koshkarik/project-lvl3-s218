@@ -23,6 +23,8 @@ const state = {
   allStreamsItems: [],
 };
 
+// helpers functions
+
 const checkUrl = url => validator.isURL(url);
 
 const getInfoFromXml = (xmlData) => {
@@ -38,7 +40,7 @@ const getInfoFromXml = (xmlData) => {
     const description = item.querySelector('description') ? item.querySelector('description').textContent : '';
     const pubData = channel.querySelector('pubDate').textContent;
     return {
-      title, pubData, link, description,
+      title, pubData, link, description, channelId,
     };
   });
   return {
@@ -46,14 +48,43 @@ const getInfoFromXml = (xmlData) => {
   };
 };
 
-const removeStream = (id) => {
+const getStream = (url) => {
+  const requestUrl = proxyCorsServer.concat(url);
+  return axios.get(requestUrl);
+};
+
+const parseXml = (xml) => {
+  const parser = new DOMParser();
+  return parser.parseFromString(xml, 'application/xml');
+};
+
+// handle state functions
+
+const removeStreamFromState = (id) => {
   const newFeedsState = state.listOfStreams.filter(feed => feed.channelId !== Number(id));
   state.listOfStreams = [...newFeedsState];
-  // eslint-disable-next-line no-use-before-define
-  buildListOfStreamsDomEl();
-  // eslint-disable-next-line no-use-before-define
-  buildItemsDom();
+  const newAllStreamsItems = state.allStreamsItems.filter(item => item.channelId !== Number(id));
+  state.allStreamsItems = [...newAllStreamsItems];
 };
+
+const saveAllItemsInState = (streamsList) => {
+  const allItems = streamsList.reduce((acc, cur) => {
+    const { items } = cur;
+    return [...acc, ...items];
+  }, []);
+  const sortedItems = allItems.sort((a, b) =>
+    new Date(b.pubData).getTime() - new Date(a.pubData).getTime());
+  state.allStreamsItems = [...sortedItems];
+};
+
+const addStreamToState = (stream) => {
+  const parsedXml = parseXml(stream.data);
+  const newChannelData = getInfoFromXml(parsedXml);
+  state.listOfStreams.push(newChannelData);
+  saveAllItemsInState(state.listOfStreams);
+};
+
+// handle dom functions
 
 const getAllStreamsListNodes = streamsList => streamsList.map((stream) => {
   const { channelTitle, channelDesc, channelId } = stream;
@@ -71,7 +102,9 @@ const getAllStreamsListNodes = streamsList => streamsList.map((stream) => {
   buttonToRemove.textContent = 'remove';
   buttonToRemove.addEventListener('click', (e) => {
     const idToRemove = e.target.dataset.remove;
-    removeStream(idToRemove);
+    removeStreamFromState(idToRemove);
+    buildListOfStreamsDomEl(); // eslint-disable-line
+    buildItemsDom(); //eslint-disable-line
   });
   newListItem.append(buttonToRemove);
   return newListItem;
@@ -84,16 +117,6 @@ const createModalBtn = () => {
   btn.setAttribute('data-target', '#exampleModalCenter');
   btn.textContent = 'more';
   return btn;
-};
-
-const saveAllItemsInState = (streamsList) => {
-  const allItems = streamsList.reduce((acc, cur) => {
-    const { items } = cur;
-    return [...acc, ...items];
-  }, []);
-  const sortedItems = allItems.sort((a, b) =>
-    new Date(b.pubData).getTime() - new Date(a.pubData).getTime());
-  state.allStreamsItems = [...sortedItems];
 };
 
 const getAllItemsNodes = () => state.allStreamsItems.map((item) => {
@@ -116,16 +139,6 @@ const getAllItemsNodes = () => state.allStreamsItems.map((item) => {
   return divEl;
 });
 
-const getStream = (url) => {
-  const requestUrl = proxyCorsServer.concat(url);
-  return axios.get(requestUrl);
-};
-
-const parseXml = (xml) => {
-  const parser = new DOMParser();
-  return parser.parseFromString(xml, 'application/xml');
-};
-
 const buildListOfStreamsDomEl = () => {
   const allStreamsNodes = getAllStreamsListNodes(state.listOfStreams);
   streamsUl.innerHTML = '';
@@ -135,7 +148,6 @@ const buildListOfStreamsDomEl = () => {
 const buildItemsDom = () => {
   itemsWrapper.innerHTML = '';
   const allItems = getAllItemsNodes();
-  console.log(allItems);
   allItems.forEach((item) => {
     itemsWrapper.append(item);
   });
@@ -160,13 +172,16 @@ const handleInputClass = (inputEl) => {
   classList.add(classToAdd);
 };
 
-const addStreamToStateAndDom = (stream) => {
-  const parsedXml = parseXml(stream.data);
-  const newChannelData = getInfoFromXml(parsedXml);
-  state.listOfStreams.push(newChannelData);
+const buildDomForStream = () => {
   buildListOfStreamsDomEl();
-  saveAllItemsInState(state.listOfStreams);
   buildItemsDom();
+};
+
+// stream and dom function
+
+const addStreamToStateAndDom = (stream) => {
+  addStreamToState(stream);
+  buildDomForStream();
 };
 
 const runRss = () => {
@@ -174,7 +189,8 @@ const runRss = () => {
   axios.all(promises)
     .then((streamsData) => {
       streamsData.forEach((piece) => {
-        addStreamToStateAndDom(piece);
+        addStreamToState(piece);
+        buildDomForStream();
       });
     });
   inputField.addEventListener('input', (e) => {

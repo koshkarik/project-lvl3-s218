@@ -84,6 +84,10 @@ const addStreamToState = (stream) => {
   saveAllItemsInState(state.listOfStreams);
 };
 
+const setInputFormState = (bool) => {
+  state.inputForm.valid = bool;
+};
+
 // handle dom functions
 
 const getAllStreamsListNodes = streamsList => streamsList.map((stream) => {
@@ -155,7 +159,7 @@ const buildItemsDom = () => {
 
 const handleInputClass = (inputEl) => {
   const { classList } = inputEl;
-  state.inputForm.valid = checkUrl(inputEl.value);
+  setInputFormState(checkUrl(inputEl.value));
   const classToAdd = state.inputForm.valid ? 'is-valid' : 'is-invalid';
   const classToRemove = state.inputForm.valid ? 'is-invalid' : 'is-valid';
   if (inputEl.value.length === 0) {

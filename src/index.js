@@ -1,5 +1,6 @@
 import axios from 'axios';
 import validator from 'validator';
+import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const inputField = document.querySelector('input');
@@ -7,7 +8,11 @@ const form = document.querySelector('form');
 const streamsUl = document.querySelector('.streams-list');
 const itemsWrapper = document.querySelector('.all-items');
 const alertDiv = document.querySelector('[data-alert]');
-const proxyCorsServer = 'https://api.codetabs.com/cors-proxy/';
+const modal = document.querySelector('.modal');
+const modalTitle = modal.querySelector('.modal-title');
+const modalBody = modal.querySelector('.modal-body');
+const proxyCorsServer = 'https://crossorigin.me/';
+console.log('go');
 
 const state = {
   inputForm: {
@@ -29,9 +34,11 @@ const getInfoFromXml = (xmlData) => {
   const channelDesc = channel.querySelector('description').textContent;
   const items = [...channel.getElementsByTagName('item')];
   const parsedItems = items.map((item) => {
+    console.log(item);
     const title = item.querySelector('title').textContent;
     const link = item.querySelector('link').textContent;
-    return { title, link };
+    const description = item.querySelector('description') ? item.querySelector('description').textContent : '';
+    return { title, link, description };
   });
   return {
     channelTitle, channelId, channelDesc, items: parsedItems, data: xmlData,
@@ -67,21 +74,37 @@ const getAllStreamsListNodes = streamsList => streamsList.map((stream) => {
   return newListItem;
 });
 
+const createModalBtn = () => {
+  const btn = document.createElement('button');
+  btn.setAttribute('class', 'btn btn-light');
+  btn.setAttribute('data-toggle', 'modal');
+  btn.setAttribute('data-target', '#exampleModalCenter');
+  btn.textContent = 'more';
+  return btn;
+};
+
 const getAllItemsNodes = (streamsList) => {
   const allItems = streamsList.reduce((acc, cur) => {
     const { items } = cur;
     return [...acc, ...items];
   }, []);
   return allItems.map((item) => {
-    const { title, link } = item;
+    const { title, link, description } = item;
     const divEl = document.createElement('div');
+    divEl.setAttribute('class', 'mb-3');
     const newLink = document.createElement('a');
     newLink.setAttribute('href', link);
     newLink.setAttribute('target', '_blank');
     const h3 = document.createElement('h3');
     h3.textContent = title;
     newLink.append(h3);
+    const buttonToOpenModal = createModalBtn();
+    buttonToOpenModal.addEventListener('click', () => {
+      modalTitle.textContent = title;
+      modalBody.textContent = description;
+    });
     divEl.append(newLink);
+    divEl.append(buttonToOpenModal);
     return divEl;
   });
 };
@@ -96,19 +119,19 @@ const parseXml = (xml) => {
   return parser.parseFromString(xml, 'application/xml');
 };
 
-function buildListOfStreamsDomEl() {
+const buildListOfStreamsDomEl = () => {
   const allStreamsNodes = getAllStreamsListNodes(state.listOfStreams);
   streamsUl.innerHTML = '';
   allStreamsNodes.forEach(node => streamsUl.append(node));
-}
+};
 
-function buildItemsDom() {
+const buildItemsDom = () => {
   itemsWrapper.innerHTML = '';
   const allItems = getAllItemsNodes(state.listOfStreams);
   allItems.forEach((item) => {
     itemsWrapper.append(item);
   });
-}
+};
 
 const handleInputClass = (inputEl) => {
   const { classList } = inputEl;

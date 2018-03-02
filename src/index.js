@@ -189,8 +189,7 @@ const runRss = () => {
   axios.all(promises)
     .then((streamsData) => {
       streamsData.forEach((piece) => {
-        addStreamToState(piece);
-        buildDomForStream();
+        addStreamToStateAndDom(piece);
       });
     });
   inputField.addEventListener('input', (e) => {

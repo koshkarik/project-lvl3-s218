@@ -86,33 +86,35 @@ const createModalBtn = () => {
   return btn;
 };
 
-const getAllItemsNodes = (streamsList) => {
+const saveAllItemsInState = (streamsList) => {
   const allItems = streamsList.reduce((acc, cur) => {
     const { items } = cur;
     return [...acc, ...items];
   }, []);
   const sortedItems = allItems.sort((a, b) =>
     new Date(b.pubData).getTime() - new Date(a.pubData).getTime());
-  return sortedItems.map((item) => {
-    const { title, link, description } = item;
-    const divEl = document.createElement('div');
-    divEl.setAttribute('class', 'mb-3');
-    const newLink = document.createElement('a');
-    newLink.setAttribute('href', link);
-    newLink.setAttribute('target', '_blank');
-    const h3 = document.createElement('h3');
-    h3.textContent = title;
-    newLink.append(h3);
-    const buttonToOpenModal = createModalBtn();
-    buttonToOpenModal.addEventListener('click', () => {
-      modalTitle.textContent = title;
-      modalBody.textContent = description;
-    });
-    divEl.append(newLink);
-    divEl.append(buttonToOpenModal);
-    return divEl;
-  });
+  state.allStreamsItems = [...sortedItems];
 };
+
+const getAllItemsNodes = () => state.allStreamsItems.map((item) => {
+  const { title, link, description } = item;
+  const divEl = document.createElement('div');
+  divEl.setAttribute('class', 'mb-3');
+  const newLink = document.createElement('a');
+  newLink.setAttribute('href', link);
+  newLink.setAttribute('target', '_blank');
+  const h3 = document.createElement('h3');
+  h3.textContent = title;
+  newLink.append(h3);
+  const buttonToOpenModal = createModalBtn();
+  buttonToOpenModal.addEventListener('click', () => {
+    modalTitle.textContent = title;
+    modalBody.textContent = description;
+  });
+  divEl.append(newLink);
+  divEl.append(buttonToOpenModal);
+  return divEl;
+});
 
 const getStream = (url) => {
   const requestUrl = proxyCorsServer.concat(url);
@@ -132,7 +134,7 @@ const buildListOfStreamsDomEl = () => {
 
 const buildItemsDom = () => {
   itemsWrapper.innerHTML = '';
-  const allItems = getAllItemsNodes(state.listOfStreams);
+  const allItems = getAllItemsNodes();
   console.log(allItems);
   allItems.forEach((item) => {
     itemsWrapper.append(item);
@@ -163,6 +165,7 @@ const addStreamToStateAndDom = (stream) => {
   const newChannelData = getInfoFromXml(parsedXml);
   state.listOfStreams.push(newChannelData);
   buildListOfStreamsDomEl();
+  saveAllItemsInState(state.listOfStreams);
   buildItemsDom();
 };
 

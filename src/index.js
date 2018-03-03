@@ -1,5 +1,6 @@
 import axios from 'axios';
 import validator from 'validator';
+import _ from 'lodash';
 import 'bootstrap';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
@@ -18,20 +19,25 @@ const state = {
     valid: false,
   },
   feedsQuantity: 0,
-  savedFeeds: ['http://feeds.bbci.co.uk/news/world/africa/rss.xml'],
+  savedFeeds: ['http://news.rambler.ru/rss/world/', 'http://feeds.bbci.co.uk/news/world/rss.xml'],
   listOfStreams: [],
   allStreamsItems: [],
 };
 
 // helpers functions
 
+const updateLocalStorage = () => {
+  const feedsToSave = state.savedFeeds.filter(item => item).join(' ');
+  localStorage.setItem('savedFeeds', feedsToSave);
+};
+
 const checkUrl = url => validator.isURL(url);
 
 const getInfoFromXml = (xmlData) => {
   const channelId = state.feedsQuantity;
-  state.feedsQuantity += 1;
   const channel = xmlData.querySelector('channel');
   const channelTitle = channel.querySelector('title').textContent;
+  const channelLink = channel.querySelector('link').textContent;
   const channelDesc = channel.querySelector('description').textContent;
   const items = [...channel.getElementsByTagName('item')];
   const parsedItems = items.map((item) => {
@@ -44,7 +50,7 @@ const getInfoFromXml = (xmlData) => {
     };
   });
   return {
-    channelTitle, channelId, channelDesc, items: parsedItems, data: xmlData,
+    channelTitle, channelLink, channelId, channelDesc, items: parsedItems, data: xmlData,
   };
 };
 
@@ -61,19 +67,23 @@ const parseXml = (xml) => {
 // handle state functions
 
 const removeStreamFromState = (id) => {
+  delete state.savedFeeds[id];
+  updateLocalStorage();
   const newFeedsState = state.listOfStreams.filter(feed => feed.channelId !== Number(id));
   state.listOfStreams = [...newFeedsState];
   const newAllStreamsItems = state.allStreamsItems.filter(item => item.channelId !== Number(id));
   state.allStreamsItems = [...newAllStreamsItems];
 };
 
+const sortItemsByData = listOfItems => listOfItems.sort((a, b) =>
+  new Date(b.pubData).getTime() - new Date(a.pubData).getTime());
+
 const saveAllItemsInState = (streamsList) => {
   const allItems = streamsList.reduce((acc, cur) => {
     const { items } = cur;
     return [...acc, ...items];
   }, []);
-  const sortedItems = allItems.sort((a, b) =>
-    new Date(b.pubData).getTime() - new Date(a.pubData).getTime());
+  const sortedItems = sortItemsByData(allItems);
   state.allStreamsItems = [...sortedItems];
 };
 
@@ -81,11 +91,33 @@ const addStreamToState = (stream) => {
   const parsedXml = parseXml(stream.data);
   const newChannelData = getInfoFromXml(parsedXml);
   state.listOfStreams.push(newChannelData);
+  state.feedsQuantity += 1;
   saveAllItemsInState(state.listOfStreams);
+};
+
+const updateStreamState = (stream) => {
+  const parsedXml = parseXml(stream.data);
+  const newChannelData = getInfoFromXml(parsedXml);
+  const { items, channelTitle } = newChannelData;
+  state.listOfStreams.forEach((feed, ind) => {
+    if (feed.channelTitle === channelTitle) {
+      state.listOfStreams[ind] = {
+        ...feed, items: items.map(item => ({ ...item, channelId: feed.channelId })),
+      };
+    }
+  });
 };
 
 const setInputFormState = (bool) => {
   state.inputForm.valid = bool;
+};
+
+const addToSavedFeeds = (url) => {
+  state.savedFeeds.push(url);
+  updateLocalStorage();
+};
+const addItemToStateList = (item) => {
+  state.allStreamsItems = [item, ...state.allStreamsItems];
 };
 
 // handle dom functions
@@ -123,7 +155,7 @@ const createModalBtn = () => {
   return btn;
 };
 
-const getAllItemsNodes = () => state.allStreamsItems.map((item) => {
+const createItemNode = (item) => {
   const { title, link, description } = item;
   const divEl = document.createElement('div');
   divEl.setAttribute('class', 'mb-3');
@@ -141,7 +173,9 @@ const getAllItemsNodes = () => state.allStreamsItems.map((item) => {
   divEl.append(newLink);
   divEl.append(buttonToOpenModal);
   return divEl;
-});
+};
+
+const getAllItemsNodes = () => state.allStreamsItems.map(createItemNode);
 
 const buildListOfStreamsDomEl = () => {
   const allStreamsNodes = getAllStreamsListNodes(state.listOfStreams);
@@ -155,6 +189,11 @@ const buildItemsDom = () => {
   allItems.forEach((item) => {
     itemsWrapper.append(item);
   });
+};
+
+const addItemToDom = (item) => {
+  const newItem = createItemNode(item);
+  itemsWrapper.prepend(newItem);
 };
 
 const handleInputClass = (inputEl) => {
@@ -188,14 +227,18 @@ const addStreamToStateAndDom = (stream) => {
   buildDomForStream();
 };
 
-const runRss = () => {
-  const promises = state.savedFeeds.map(stream => getStream(stream));
+const getAllStreamsAndAction = (action) => {
+  const promises = state.savedFeeds.filter(item => item).map(stream => getStream(stream));
   axios.all(promises)
     .then((streamsData) => {
       streamsData.forEach((piece) => {
-        addStreamToStateAndDom(piece);
+        action(piece);
       });
     });
+};
+
+const runRss = () => {
+  getAllStreamsAndAction(addStreamToStateAndDom);
   inputField.addEventListener('input', (e) => {
     if (!alertDiv.classList.contains('invisible')) {
       alertDiv.classList.add('invisible');
@@ -210,7 +253,7 @@ const runRss = () => {
     }
     inputField.value = '';
     handleInputClass(inputField);
-    getStream(url).then(addStreamToStateAndDom).then(() => state.savedFeeds.push(url))
+    getStream(url).then(addStreamToStateAndDom).then(() => addToSavedFeeds(url))
       .catch((error) => {
         console.log(error);
         alertDiv.classList.remove('invisible');
@@ -218,5 +261,39 @@ const runRss = () => {
   });
 };
 
+const refreshFeeds = () => {
+  getAllStreamsAndAction(updateStreamState);
+  const iter = ([firstStream, ...rest], acc) => {
+    if (!firstStream) {
+      return acc;
+    }
+    const difference = _.differenceWith(firstStream.items, state.allStreamsItems, _.isEqual);
+    const newAcc = [...acc, ...difference];
+    return iter(rest, newAcc);
+  };
+  const itemsToAdd = iter(state.listOfStreams, []);
+  console.log(itemsToAdd);
+  if (itemsToAdd.length > 0) {
+    const sortedItems = sortItemsByData(itemsToAdd);
+    sortedItems.forEach(item => addItemToStateList(item));
+    sortedItems.reverse().forEach(item => addItemToDom(item));
+  }
+  timedRefresh(); // eslint-disable-line
+};
+
+const checkLocalStorage = () => {
+  const savedFeeds = localStorage.getItem('savedFeeds');
+  if (savedFeeds) {
+    const parsedSavedFeeds = savedFeeds.split(' ');
+    state.savedFeeds = [...parsedSavedFeeds];
+  }
+};
+
+const timedRefresh = () => {
+  setTimeout(refreshFeeds, 5000);
+};
+
+checkLocalStorage();
 runRss();
+timedRefresh();
 

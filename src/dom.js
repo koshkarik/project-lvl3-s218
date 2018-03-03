@@ -45,7 +45,7 @@ export const createModalBtn = () => {
 export const createItemNode = (item) => {
   const { title, link, description } = item;
   const divEl = document.createElement('div');
-  divEl.setAttribute('class', 'mb-3 border-bottom pb-2');
+  divEl.setAttribute('class', 'mb-3 border-bottom p-3');
   const newLink = document.createElement('a');
   newLink.setAttribute('class', 'text-dark');
   newLink.setAttribute('href', link);
